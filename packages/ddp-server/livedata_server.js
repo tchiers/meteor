@@ -249,6 +249,10 @@ var Session = function (server, version, socket, options) {
 
   self.collectionViews = new Map();
 
+  // Keeps track of which collectionNames are batching messages for bulk transmission
+  // collectionName => [queued messages]
+  self._isBatching = new Map();
+
   // Set this to false to not send messages when collectionViews are
   // modified. This is done when rerunning subs in _setUserId and those messages
   // are calculated via a diff instead.
@@ -337,8 +341,12 @@ _.extend(Session.prototype, {
 
   sendAdded: function (collectionName, id, fields) {
     var self = this;
-    if (self._isSending)
-      self.send({msg: "added", collection: collectionName, id: id, fields: fields});
+    if (self._isSending) {
+      const queue = self._isBatching.get(collectionName);
+      const msg = {msg: "added", collection: collectionName, id: id, fields: fields};
+      if (queue) queue.push(msg);
+      else self.send(msg);
+    }
   },
 
   sendChanged: function (collectionName, id, fields) {
@@ -347,19 +355,26 @@ _.extend(Session.prototype, {
       return;
 
     if (self._isSending) {
-      self.send({
+      const queue = self._isBatching.get(collectionName);
+      const msg = {
         msg: "changed",
         collection: collectionName,
         id: id,
         fields: fields
-      });
+      };
+      if (queue) queue.push(msg);
+      else self.send(msg);
     }
   },
 
   sendRemoved: function (collectionName, id) {
     var self = this;
-    if (self._isSending)
-      self.send({msg: "removed", collection: collectionName, id: id});
+    if (self._isSending) {
+      const queue = self._isBatching.get(collectionName);
+      const msg = {msg: "removed", collection: collectionName, id: id};
+      if (queue) queue.push(msg);
+      else self.send(msg);
+    }
   },
 
   getSendCallbacks: function () {
@@ -401,6 +416,19 @@ _.extend(Session.prototype, {
     var self = this;
     var view = self.getCollectionView(collectionName);
     view.changed(subscriptionHandle, id, fields);
+  },
+
+  startBatching: function (collectionName) {
+    if (! this._isBatching.has(collectionName))
+      this._isBatching.set(collectionName, []);
+  },
+
+  stopBatching: function (collectionName) {
+    const msgs = this._isBatching.get(collectionName);
+    this._isBatching.delete(collectionName);
+    if (this._isSending) {
+      this.send({msg: "bulk", msgs});
+    }
   },
 
   startUniversalSubs: function () {
@@ -1259,6 +1287,10 @@ _.extend(Subscription.prototype, {
       self._documents.set(collectionName, ids);
     }
     ids.add(id);
+    if (self._batchInitial && !self._ready) {
+      self._session.startBatching(collectionName);
+      self._batchInitial.add(collectionName);
+    }
     self._session.added(self._subscriptionHandle, collectionName, id, fields);
   },
 
@@ -1276,6 +1308,10 @@ _.extend(Subscription.prototype, {
     if (self._isDeactivated())
       return;
     id = self._idFilter.idStringify(id);
+    if (self._batchInitial && !self._ready) {
+      self._session.startBatching(collectionName);
+      self._batchInitial.add(collectionName);
+    }
     self._session.changed(self._subscriptionHandle, collectionName, id, fields);
   },
 
@@ -1295,6 +1331,10 @@ _.extend(Subscription.prototype, {
     // We don't bother to delete sets of things in a collection if the
     // collection is empty.  It could break _removeAllDocuments.
     self._documents.get(collectionName).delete(id);
+    if (self._batchInitial && !self._ready) {
+      self._session.startBatching(collectionName);
+      self._batchInitial.add(collectionName);
+    }
     self._session.removed(self._subscriptionHandle, collectionName, id);
   },
 
@@ -1311,9 +1351,24 @@ _.extend(Subscription.prototype, {
     if (!self._subscriptionId)
       return;  // unnecessary but ignored for universal sub
     if (!self._ready) {
+      if (self._batchInitial) {
+        self._batchInitial.forEach(collectionName => self._session.stopBatching(collectionName));
+        self._batchInitial.clear();
+      }
       self._session.sendReady([self._subscriptionId]);
       self._ready = true;
     }
+  },
+
+  /**
+   * @summary Call inside the publish function.  Tells DDP to send the initial data set in one chunk per collection, rather than one message per doc. This greatly speeds up subscription to a large number of small documents
+   * @locus Server
+   * @memberOf Subscription
+   * @instance
+   */
+  batchInitial: function () {
+    //set members keep track of which collections are being batched
+    this._batchInitial = new Set();
   }
 });
 

@@ -1054,7 +1054,7 @@ export class Connection {
   _processOneDataMessage(msg, updates) {
     const messageType = msg.msg;
 
-    // msg is one of ['added', 'changed', 'removed', 'ready', 'updated']
+    // msg is one of ['added', 'changed', 'removed', 'ready', 'updated', 'bulk']
     if (messageType === 'added') {
       this._process_added(msg, updates);
     } else if (messageType === 'changed') {
@@ -1067,6 +1067,9 @@ export class Connection {
       this._process_updated(msg, updates);
     } else if (messageType === 'nosub') {
       // ignore this
+    } else if (messageType === 'bulk') {
+      // recursively process
+      msg.msgs.forEach(subMsg => this._processOneDataMessage(subMsg, updates));
     } else {
       Meteor._debug('discarding unknown livedata data message type', msg);
     }
@@ -1650,7 +1653,7 @@ export class Connection {
     } else if (msg.msg === 'pong') {
       // noop, as we assume everything's a pong
     } else if (
-      ['added', 'changed', 'removed', 'ready', 'updated'].includes(msg.msg)
+      ['added', 'changed', 'removed', 'ready', 'updated', 'bulk'].includes(msg.msg)
     ) {
       this._livedata_data(msg);
     } else if (msg.msg === 'nosub') {
