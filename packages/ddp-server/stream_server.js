@@ -38,7 +38,7 @@ StreamServer = function () {
   RoutePolicy.declare(self.prefix + '/', 'network');
 
   // set up sockjs
-  var sockjs = Npm.require('sockjs');
+  var sockjs = Npm.require('@tchiers/sockjs');
   var serverOptions = {
     prefix: self.prefix,
     log: function() {},
@@ -68,6 +68,13 @@ StreamServer = function () {
     serverOptions.faye_server_options = {
       extensions: websocketExtensions()
     };
+  }
+
+  //Allow additional header properties to pass through sockjs via $SOCKJS_ADDITIONAL_HEADERS
+  //which should be a comma and/or space separated list of http headers to pass through
+  const additional_headers = process.env.SOCKJS_ADDITIONAL_HEADERS;
+  if (additional_headers) {
+    serverOptions.additional_headers = additional_headers.split(/\s*,\s*|\s+/);
   }
 
   self.server = sockjs.createServer(serverOptions);

@@ -1,6 +1,11 @@
 {
   "lockfileVersion": 1,
   "dependencies": {
+    "@tchiers/sockjs": {
+      "version": "0.3.20",
+      "resolved": "https://registry.npmjs.org/@tchiers/sockjs/-/sockjs-0.3.20.tgz",
+      "integrity": "sha512-8EEznhzXRNxK1Rf5y1JIHr+fKK2JvDIsmqsb/x1Z7k5xUn2Pjr9CzzU0xhfA6rFgjWx56kZj5bXSSe147UpPRg=="
+    },
     "faye-websocket": {
       "version": "0.10.0",
       "resolved": "https://registry.npmjs.org/faye-websocket/-/faye-websocket-0.10.0.tgz",
@@ -15,11 +20,6 @@
       "version": "5.2.1",
       "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
       "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ=="
-    },
-    "sockjs": {
-      "version": "0.3.20",
-      "resolved": "https://registry.npmjs.org/sockjs/-/sockjs-0.3.20.tgz",
-      "integrity": "sha512-SpmVOVpdq0DJc0qArhF3E5xsxvaiqGNb73XfgBpK1y3UD5gs8DSo8aCTsuT5pX8rssdc2NDIzANwP9eCAiSdTA=="
     },
     "uuid": {
       "version": "3.4.0",
